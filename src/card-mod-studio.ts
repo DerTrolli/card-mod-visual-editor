@@ -15,6 +15,7 @@
 
 import './editor/cms-panel.js';
 import './editor/cms-tab.js';
+import './components/cms-color-picker.js';
 import { startInjector } from './editor/cms-injector.js';
 import { isCardModInstalled } from './utils/dom-helpers.js';
 import type { CardModStudioMeta } from './types/index.js';

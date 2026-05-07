@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { BorderModuleState } from '../types/index.js';
 import { DEFAULT_BORDER } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
+import '../components/cms-color-picker.js';
 
 export class BorderModule extends LitElement {
   @property({ attribute: false }) state: BorderModuleState = { ...DEFAULT_BORDER };
@@ -104,13 +105,11 @@ export class BorderModule extends LitElement {
               <div class="control-row">
                 <span class="control-label">Border color</span>
                 <div class="control-right">
-                  <input
-                    type="color"
+                  <cms-color-picker
                     .value=${this.state.borderColor}
-                    @input=${(e: Event) =>
-                      this._emit({ borderColor: (e.target as HTMLInputElement).value })}
-                  />
-                  <span class="color-label">${this.state.borderColor}</span>
+                    @color-changed=${(e: CustomEvent) =>
+                      this._emit({ borderColor: e.detail.value })}
+                  ></cms-color-picker>
                 </div>
               </div>
             `

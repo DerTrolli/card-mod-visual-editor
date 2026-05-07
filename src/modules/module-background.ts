@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { BackgroundModuleState } from '../types/index.js';
 import { DEFAULT_BACKGROUND } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
+import '../components/cms-color-picker.js';
 
 export class BackgroundModule extends LitElement {
   @property({ attribute: false }) state: BackgroundModuleState = {
@@ -82,13 +83,11 @@ export class BackgroundModule extends LitElement {
             ${this.state.type === 'gradient' ? 'Color 1' : 'Color'}
           </span>
           <div class="control-right">
-            <input
-              type="color"
+            <cms-color-picker
               .value=${this.state.color1}
-              @input=${(e: Event) =>
-                this._emit({ color1: (e.target as HTMLInputElement).value })}
-            />
-            <span class="color-label">${this.state.color1}</span>
+              @color-changed=${(e: CustomEvent) =>
+                this._emit({ color1: e.detail.value })}
+            ></cms-color-picker>
           </div>
         </div>
 
@@ -97,13 +96,11 @@ export class BackgroundModule extends LitElement {
               <div class="control-row">
                 <span class="control-label">Color 2</span>
                 <div class="control-right">
-                  <input
-                    type="color"
+                  <cms-color-picker
                     .value=${this.state.color2}
-                    @input=${(e: Event) =>
-                      this._emit({ color2: (e.target as HTMLInputElement).value })}
-                  />
-                  <span class="color-label">${this.state.color2}</span>
+                    @color-changed=${(e: CustomEvent) =>
+                      this._emit({ color2: e.detail.value })}
+                  ></cms-color-picker>
                 </div>
               </div>
 

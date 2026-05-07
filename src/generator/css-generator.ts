@@ -13,6 +13,7 @@ import type {
   AnimationModuleState,
   BorderModuleState,
   HeadingStyleModuleState,
+  ThresholdModuleState,
 } from '../types/index.js';
 
 // ---------------------------------------------------------------------------
@@ -30,7 +31,8 @@ const KEYFRAMES: Record<string, string> = {
 }`,
   'gradient-shift': `@keyframes cms-gradient-shift {
   0% { background-position: 0% center; }
-  100% { background-position: 100% center; }
+  50% { background-position: 100% center; }
+  100% { background-position: 0% center; }
 }`,
   blink: `@keyframes cms-blink {
   0%, 49%, 100% { opacity: 1; }
@@ -90,9 +92,23 @@ function filterDecls(s: FilterModuleState): string[] {
   return decls;
 }
 
-function accentColorDecls(s: AccentColorModuleState): string[] {
+function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[] {
   if (!s.enabled) return [];
-  return [`--accent-color: ${s.color};`];
+
+  const decls = [`--accent-color: ${s.color};`];
+
+  // Thermostat cards use climate state color variables
+  if (cardType === 'thermostat') {
+    decls.push(
+      `--state-climate-heat-color: ${s.color};`,
+      `--state-climate-cool-color: ${s.color};`,
+      `--state-climate-auto-color: ${s.color};`,
+      `--state-climate-idle-color: ${s.color};`,
+      `--control-circular-slider-color: ${s.color};`,
+    );
+  }
+
+  return decls;
 }
 
 function backgroundDecls(s: BackgroundModuleState): string[] {
@@ -161,14 +177,14 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
 
   const titlePDecls = [
     `font-size: ${s.fontSize}px;`,
-    `color: ${s.textColor};`,
-    `text-align: ${s.alignment};`,
+    `color: ${s.textColor} !important;`,
+    `text-align: ${s.alignment} !important;`,
   ];
   const titleP = `.title p {\n${titlePDecls.map((d) => `  ${d}`).join('\n')}\n}`;
 
   const iconDecls = [
     `--mdc-icon-size: ${s.iconSize}px;`,
-    `color: ${s.iconColor};`,
+    `color: ${s.iconColor} !important;`,
   ];
   const titleIcon = `.title ha-icon {\n${iconDecls.map((d) => `  ${d}`).join('\n')}\n}`;
 
@@ -178,13 +194,27 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   return [container, titleP, titleIcon].join('\n\n');
 }
 
-function iconColorBlock(s: IconColorModuleState): string {
+function iconColorBlock(s: IconColorModuleState, cardType?: string): string {
   if (!s.enabled) return '';
 
+  // Sensor cards use CSS variable approach
+  const useCssVar = cardType === 'sensor' || cardType === 'entity';
+
   if (s.mode === 'plain') {
+    if (useCssVar) {
+      return `:host {\n  --paper-item-icon-color: ${s.color};\n}`;
+    }
     return `ha-state-icon {\n  color: ${s.color} !important;\n}`;
   }
 
+  // Conditional mode
+  if (useCssVar) {
+    return (
+      `:host {\n` +
+      `  --paper-item-icon-color: {{ '${s.colorOn}' if is_state(config.entity, 'on') else '${s.colorOff}' }};\n` +
+      `}`
+    );
+  }
   return (
     `ha-state-icon {\n` +
     `  color: {{ '${s.colorOn}' if is_state(config.entity, 'on') else '${s.colorOff}' }} !important;\n` +
@@ -192,11 +222,47 @@ function iconColorBlock(s: IconColorModuleState): string {
   );
 }
 
+function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string): string {
+  if (!s || !s.enabled || !s.entityId || s.rules.length === 0) return '';
+
+  // Build nested Jinja2 ternary expression
+  // {{ '#blue' if states('sensor.temp') | float(0) < 18 else ('#red' if ... else '#default') }}
+
+  const stateExpr = `states('${s.entityId}') | float(0)`;
+
+  let jinja = '{{ ';
+  for (let i = 0; i < s.rules.length; i++) {
+    const rule = s.rules[i];
+    if (i > 0) jinja += ' else (';
+    jinja += `'${rule.color}' if ${stateExpr} ${rule.operator} ${rule.value}`;
+  }
+  jinja += ` else '${s.defaultColor}'`;
+  jinja += ')'.repeat(s.rules.length - 1);
+  jinja += ' }}';
+
+  // Generate CSS based on property type
+  switch (s.property) {
+    case 'icon-color': {
+      const useCssVar = cardType === 'sensor' || cardType === 'entity';
+      if (useCssVar) {
+        return `:host {\n  --paper-item-icon-color: ${jinja};\n}`;
+      }
+      return `ha-state-icon {\n  color: ${jinja} !important;\n}`;
+    }
+    case 'background':
+      return `ha-card {\n  background: ${jinja};\n}`;
+    case 'text-color':
+      return `ha-card {\n  color: ${jinja};\n}`;
+    default:
+      return '';
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-export function generateCss(state: StudioState): string {
+export function generateCss(state: StudioState, cardType?: string): string {
   const parts: string[] = [];
 
   const kf = animationKeyframes(state.animation);
@@ -204,7 +270,7 @@ export function generateCss(state: StudioState): string {
 
   // ha-card block
   const haCardDecls = [
-    ...accentColorDecls(state.accentColor),
+    ...accentColorDecls(state.accentColor, cardType),
     ...filterDecls(state.filter),
     ...backgroundDecls(state.background),
     ...borderDecls(state.border),
@@ -215,8 +281,11 @@ export function generateCss(state: StudioState): string {
     parts.push(`ha-card {\n${body}\n}`);
   }
 
-  const iconColor = iconColorBlock(state.iconColor);
+  const iconColor = iconColorBlock(state.iconColor, cardType);
   if (iconColor) parts.push(iconColor);
+
+  const threshold = thresholdBlock(state.threshold, cardType);
+  if (threshold) parts.push(threshold);
 
   const headingStyle = headingStyleBlocks(state.headingStyle);
   if (headingStyle) parts.push(headingStyle);

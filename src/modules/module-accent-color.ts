@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { AccentColorModuleState } from '../types/index.js';
 import { DEFAULT_ACCENT_COLOR } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
+import '../components/cms-color-picker.js';
 
 export class AccentColorModule extends LitElement {
   @property({ attribute: false }) state: AccentColorModuleState = {
@@ -36,25 +37,6 @@ export class AccentColorModule extends LitElement {
     );
   }
 
-  /** Resolves any CSS color (named, rgb(), hex) to a 6-digit hex for <input type="color">. */
-  private _toHex(value: string): string {
-    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
-    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
-      return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
-    }
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1; canvas.height = 1;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = value;
-      ctx.fillRect(0, 0, 1, 1);
-      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-    } catch {
-      return DEFAULT_ACCENT_COLOR.color;
-    }
-  }
-
   override render() {
     return html`
       <div class="module">
@@ -74,13 +56,11 @@ export class AccentColorModule extends LitElement {
                 <div class="control-row">
                   <span class="control-label">Color (--accent-color)</span>
                   <div class="control-right">
-                    <input
-                      type="color"
-                      .value=${this._toHex(this.state.color)}
-                      @input=${(e: Event) =>
-                        this._emit({ color: (e.target as HTMLInputElement).value })}
-                    />
-                    <span class="color-label">${this.state.color}</span>
+                    <cms-color-picker
+                      .value=${this.state.color}
+                      @color-changed=${(e: CustomEvent) =>
+                        this._emit({ color: e.detail.value })}
+                    ></cms-color-picker>
                   </div>
                 </div>
                 <p

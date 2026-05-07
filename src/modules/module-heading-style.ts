@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import type { HeadingStyleModuleState } from '../types/index.js';
 import { DEFAULT_HEADING_STYLE } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
+import '../components/cms-color-picker.js';
 
 export class HeadingStyleModule extends LitElement {
   @property({ attribute: false }) state: HeadingStyleModuleState = {
@@ -38,24 +39,6 @@ export class HeadingStyleModule extends LitElement {
         detail: { ...this.state, ...changes },
       }),
     );
-  }
-
-  private _toHex(value: string): string {
-    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
-    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
-      return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
-    }
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1; canvas.height = 1;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = value;
-      ctx.fillRect(0, 0, 1, 1);
-      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-    } catch {
-      return DEFAULT_HEADING_STYLE.textColor;
-    }
   }
 
   override render() {
@@ -102,13 +85,11 @@ export class HeadingStyleModule extends LitElement {
         <div class="control-row">
           <span class="control-label">Text color</span>
           <div class="control-right">
-            <input
-              type="color"
-              .value=${this._toHex(this.state.textColor)}
-              @input=${(e: Event) =>
-                this._emit({ textColor: (e.target as HTMLInputElement).value })}
-            />
-            <span class="color-label">${this.state.textColor}</span>
+            <cms-color-picker
+              .value=${this.state.textColor}
+              @color-changed=${(e: CustomEvent) =>
+                this._emit({ textColor: e.detail.value })}
+            ></cms-color-picker>
           </div>
         </div>
 
@@ -135,13 +116,11 @@ export class HeadingStyleModule extends LitElement {
         <div class="control-row">
           <span class="control-label">Icon color</span>
           <div class="control-right">
-            <input
-              type="color"
-              .value=${this._toHex(this.state.iconColor)}
-              @input=${(e: Event) =>
-                this._emit({ iconColor: (e.target as HTMLInputElement).value })}
-            />
-            <span class="color-label">${this.state.iconColor}</span>
+            <cms-color-picker
+              .value=${this.state.iconColor}
+              @color-changed=${(e: CustomEvent) =>
+                this._emit({ iconColor: e.detail.value })}
+            ></cms-color-picker>
           </div>
         </div>
 

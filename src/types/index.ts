@@ -140,6 +140,21 @@ export interface HeadingStyleModuleState {
   alignment: 'left' | 'center' | 'right';
 }
 
+export interface ThresholdRule {
+  id: string;
+  operator: '<' | '<=' | '>' | '>=' | '==' | '!=';
+  value: number;
+  color: string;
+}
+
+export interface ThresholdModuleState {
+  enabled: boolean;
+  entityId: string;
+  property: 'icon-color' | 'background' | 'text-color';
+  rules: ThresholdRule[];
+  defaultColor: string;
+}
+
 /** Aggregate state of the entire Style panel. */
 export interface StudioState {
   filter: FilterModuleState;
@@ -149,6 +164,7 @@ export interface StudioState {
   animation: AnimationModuleState;
   border: BorderModuleState;
   headingStyle: HeadingStyleModuleState;
+  threshold: ThresholdModuleState;
   advanced: AdvancedModuleState;
 }
 

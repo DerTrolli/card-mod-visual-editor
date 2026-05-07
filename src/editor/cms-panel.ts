@@ -10,6 +10,7 @@ import type {
   BackgroundModuleState,
   AnimationModuleState,
   BorderModuleState,
+  ThresholdModuleState,
   AdvancedModuleState,
   HeadingStyleModuleState,
 } from '../types/index.js';
@@ -25,6 +26,7 @@ import '../modules/module-accent-color.js';
 import '../modules/module-background.js';
 import '../modules/module-animation.js';
 import '../modules/module-border.js';
+import '../modules/module-threshold.js';
 import '../modules/module-advanced.js';
 import '../modules/module-heading-style.js';
 
@@ -56,7 +58,7 @@ const NO_BACKGROUND_TYPES = new Set([
 
 // Cards where ha-state-icon is absent — Icon Color module is hidden.
 const NO_ICON_COLOR_TYPES = new Set([
-  'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
+  'gauge', 'history-graph', 'statistics-graph', 'statistic',
   'energy-distribution', 'energy-usage-graph',
   'thermostat', 'humidifier', 'light', 'alarm-panel',
   'media-control', 'weather-forecast', 'calendar', 'logbook', 'activity',
@@ -72,6 +74,7 @@ export class CmsPanel extends LitElement {
   @state() private _cardModPresent = false;
   @state() private _studioState: StudioState | null = null;
   @state() private _previewOpen = true;
+  @state() private _previewConfig: CardModCardConfig | undefined = undefined;
 
   private _lastEmittedConfigJson: string | null = null;
 
@@ -84,6 +87,7 @@ export class CmsPanel extends LitElement {
     super.updated(changed);
     if (changed.has('config') || changed.has('hass')) {
       this._initState();
+      this._previewConfig = undefined;
     }
   }
 
@@ -189,10 +193,17 @@ export class CmsPanel extends LitElement {
     this._emitConfigChanged();
   }
 
+  private _onThresholdChanged(e: CustomEvent<ThresholdModuleState>) {
+    if (!this._studioState) return;
+    this._studioState = { ...this._studioState, threshold: e.detail };
+    this._emitConfigChanged();
+  }
+
   private _emitConfigChanged() {
     if (!this.config || !this._studioState) return;
-    const css = generateCss(this._studioState);
+    const css = generateCss(this._studioState, this.config?.type);
     const newConfig = applyCardModStyle(css, this.config);
+    this._previewConfig = newConfig;
     this._lastEmittedConfigJson = JSON.stringify(newConfig);
     this.dispatchEvent(
       new CustomEvent('config-changed', {
@@ -369,6 +380,7 @@ export class CmsPanel extends LitElement {
   private _renderPreview() {
     if (!this.config || !this.hass) return nothing;
     const hasHuiCard = Boolean(customElements.get('hui-card'));
+    const previewConfig = this._previewConfig ?? this.config;
     return html`
       <div class="preview-section">
         <div
@@ -382,7 +394,7 @@ export class CmsPanel extends LitElement {
           ? html`
               <div class="preview-body">
                 ${hasHuiCard
-                  ? html`<hui-card .hass=${this.hass} .config=${this.config}></hui-card>`
+                  ? html`<hui-card .hass=${this.hass} .config=${previewConfig}></hui-card>`
                   : html`<p class="preview-unavailable">Preview unavailable — open a card editor first.</p>`}
               </div>
             `
@@ -446,6 +458,11 @@ export class CmsPanel extends LitElement {
             ></cms-icon-color-module>
           `
         : nothing}
+
+      <cms-threshold-module
+        .state=${s.threshold}
+        @state-changed=${this._onThresholdChanged}
+      ></cms-threshold-module>
 
       ${showBackground
         ? html`

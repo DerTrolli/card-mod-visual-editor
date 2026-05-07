@@ -22,6 +22,8 @@ import type {
   BackgroundModuleState,
   BorderModuleState,
   HeadingStyleModuleState,
+  AnimationModuleState,
+  ThresholdModuleState,
   AdvancedModuleState,
   StudioState,
 } from '../types/index.js';
@@ -85,6 +87,14 @@ export const DEFAULT_HEADING_STYLE: HeadingStyleModuleState = {
   alignment: 'left',
 };
 
+export const DEFAULT_THRESHOLD: ThresholdModuleState = {
+  enabled: false,
+  entityId: '',
+  property: 'icon-color',
+  rules: [],
+  defaultColor: '#888888',
+};
+
 // ---------------------------------------------------------------------------
 // Claimed-property tracking
 // ---------------------------------------------------------------------------
@@ -94,12 +104,71 @@ function claimKey(selector: string, property: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Animation module
+// ---------------------------------------------------------------------------
+
+function mapAnimation(
+  haCard: CssTarget | null,
+  claimed: Set<string>,
+): AnimationModuleState {
+  if (!haCard) return { ...DEFAULT_ANIMATION };
+
+  const animProp = findProp(haCard, 'animation');
+  if (!animProp) return { ...DEFAULT_ANIMATION };
+
+  // Pattern: cms-{preset} {speed}s ease-in-out infinite
+  const ANIM_PATTERN = /^cms-(pulse|breathe|gradient-shift|blink|bounce)\s+([\d.]+)s\s+ease-in-out\s+infinite$/;
+
+  // Parse unconditional animation (trigger=always)
+  if (!animProp.hasCondition) {
+    const match = animProp.value.match(ANIM_PATTERN);
+    if (match) {
+      claimed.add(claimKey(haCard.selector, 'animation'));
+      return {
+        enabled: true,
+        preset: match[1] as 'pulse' | 'breathe' | 'gradient-shift' | 'blink' | 'bounce',
+        speedS: parseFloat(match[2]),
+        trigger: 'always',
+      };
+    }
+  } else {
+    // Parse conditional animation (trigger=on/off)
+    const onValue = animProp.onValue?.trim() || '';
+    const offValue = animProp.offValue?.trim() || '';
+
+    // Check which value has the animation
+    const animValue = onValue.match(ANIM_PATTERN) ? onValue :
+                      offValue.match(ANIM_PATTERN) ? offValue : null;
+
+    if (animValue) {
+      const match = animValue.match(ANIM_PATTERN);
+      if (match) {
+        claimed.add(claimKey(haCard.selector, 'animation'));
+
+        // Determine trigger: if animation is in onValue, trigger is 'on'
+        const trigger = onValue.match(ANIM_PATTERN) ? 'on' : 'off';
+
+        return {
+          enabled: true,
+          preset: match[1] as 'pulse' | 'breathe' | 'gradient-shift' | 'blink' | 'bounce',
+          speedS: parseFloat(match[2]),
+          trigger: trigger as 'on' | 'off',
+        };
+      }
+    }
+  }
+
+  return { ...DEFAULT_ANIMATION };
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 export function mapToStudioState(parsed: CardModStyleState): StudioState {
   const haCard = findTarget(parsed.targets, 'ha-card');
   const haStateIcon = findTarget(parsed.targets, 'ha-state-icon');
+  const hostTarget = findTarget(parsed.targets, ':host');
   const titleP = findTarget(parsed.targets, '.title p');
   const titleIcon = findTarget(parsed.targets, '.title ha-icon');
   const container = findTarget(parsed.targets, '.container');
@@ -111,9 +180,10 @@ export function mapToStudioState(parsed: CardModStyleState): StudioState {
     iconColor: mapIconColor(haStateIcon, claimed),
     accentColor: mapAccentColor(haCard, claimed),
     background: mapBackground(haCard, claimed),
-    animation: { ...DEFAULT_ANIMATION },
+    animation: mapAnimation(haCard, claimed),
     border: mapBorder(haCard, claimed),
     headingStyle: mapHeadingStyle(titleP, titleIcon, container, claimed),
+    threshold: mapThreshold(haCard, haStateIcon, hostTarget, claimed),
     advanced: mapAdvanced(parsed, claimed),
   };
 }
@@ -434,6 +504,27 @@ function mapHeadingStyle(
   }
 
   return state;
+}
+
+// ---------------------------------------------------------------------------
+// Threshold module
+// ---------------------------------------------------------------------------
+
+function mapThreshold(
+  _haCard: CssTarget | null,
+  _haStateIcon: CssTarget | null,
+  _hostTarget: CssTarget | null,
+  _claimed: Set<string>,
+): ThresholdModuleState {
+  // Threshold patterns are complex nested ternaries with states() calls.
+  // For now, we return the default state — threshold rules created in the UI
+  // will be preserved, but we won't parse existing threshold CSS back into rules.
+  // This is acceptable because threshold is a new feature users will create fresh.
+
+  // Future enhancement: parse nested Jinja2 ternaries like:
+  // {{ '#blue' if states('sensor.temp') | float(0) < 18 else ('#red' if ... else '#gray') }}
+
+  return { ...DEFAULT_THRESHOLD };
 }
 
 // ---------------------------------------------------------------------------

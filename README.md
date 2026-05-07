@@ -4,7 +4,9 @@ A visual GUI editor for [card-mod](https://github.com/thomasloven/lovelace-card-
 
 Instead of hand-writing YAML + CSS + Jinja2 templates, Card-Mod Studio gives you color pickers, sliders, and animation presets — and generates the correct `card_mod` YAML automatically.
 
-> **Current version: v0.3.7**
+> **Current version: v0.4.0**
+>
+> See [docs/BUG_FIX_PLAN.md](docs/BUG_FIX_PLAN.md) for detailed changelog and roadmap.
 
 ---
 
@@ -18,6 +20,7 @@ Card-Mod Studio adds a **"Style" button** to the Home Assistant card editor. Cli
 | Visual Filters | Grayscale (always / when on / when off), brightness, blur, transition speed | Most cards |
 | Accent Color | CSS `--accent-color` override | Most cards |
 | Icon Color | Static or on/off conditional color for `ha-state-icon` | Cards with icons |
+| Threshold Colors | Numeric comparisons with multiple rules (< <= > >= == !=) for icon color, background, or text color | All cards |
 | Background | Solid color or gradient + angle, optional state condition | Most cards |
 | Animation | Pulse, breathe, gradient-shift, bounce, blink — always or state-triggered | Most cards |
 | Border | Corner radius + optional colored border | All cards |

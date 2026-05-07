@@ -323,8 +323,8 @@ describe('generateCss — heading style', () => {
     );
     expect(css).toContain('.title p');
     expect(css).toContain('font-size: 28px;');
-    expect(css).toContain('color: #ff0000;');
-    expect(css).toContain('text-align: center;');
+    expect(css).toContain('color: #ff0000 !important;');
+    expect(css).toContain('text-align: center !important;');
   });
 
   it('emits .title ha-icon with --mdc-icon-size and color', () => {
@@ -340,7 +340,7 @@ describe('generateCss — heading style', () => {
     );
     expect(css).toContain('.title ha-icon');
     expect(css).toContain('--mdc-icon-size: 32px;');
-    expect(css).toContain('color: #00ff00;');
+    expect(css).toContain('color: #00ff00 !important;');
   });
 
   it('emits .container with justify-content for alignment=right', () => {
@@ -504,9 +504,9 @@ describe('round-trip', () => {
 
     const generated = generateCss(state);
     expect(generated).toContain('font-size: 28px;');
-    expect(generated).toContain('color: #ff0000;');
+    expect(generated).toContain('color: #ff0000 !important;');
     expect(generated).toContain('--mdc-icon-size: 32px;');
-    expect(generated).toContain('color: #00ff00;');
+    expect(generated).toContain('color: #00ff00 !important;');
     expect(generated).toContain('justify-content: center;');
   });
 });
