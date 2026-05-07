@@ -1325,6 +1325,10 @@ function thresholdBlock(s2, cardType) {
       return `ha-card {
   color: ${jinja};
 }`;
+    case "accent-color":
+      return `ha-card {
+  --accent-color: ${jinja};
+}`;
     default:
       return "";
   }
@@ -2441,6 +2445,7 @@ class ThresholdModule extends i$2 {
     this.state = {
       ...DEFAULT_THRESHOLD
     };
+    this.cardEntity = "";
     this._open = false;
   }
   static {
@@ -2545,9 +2550,13 @@ class ThresholdModule extends i$2 {
     this._open = !this._open;
   }
   _emit(changes) {
+    const newState = { ...this.state, ...changes };
+    if (changes.enabled && !newState.entityId && this.cardEntity) {
+      newState.entityId = this.cardEntity;
+    }
     this.dispatchEvent(
       new CustomEvent("state-changed", {
-        detail: { ...this.state, ...changes }
+        detail: newState
       })
     );
   }
@@ -2576,9 +2585,9 @@ class ThresholdModule extends i$2 {
         <input
           class="entity-input"
           type="text"
-          .value=${this.state.entityId}
+          .value=${this.state.entityId || this.cardEntity}
           @input=${(e2) => this._emit({ entityId: e2.target.value })}
-          placeholder="sensor.temperature"
+          placeholder=${this.cardEntity || "sensor.temperature"}
         />
 
         <div class="control-row">
@@ -2592,6 +2601,9 @@ class ThresholdModule extends i$2 {
             >
               <option value="icon-color" ?selected=${this.state.property === "icon-color"}>
                 Icon Color
+              </option>
+              <option value="accent-color" ?selected=${this.state.property === "accent-color"}>
+                Accent Color
               </option>
               <option value="background" ?selected=${this.state.property === "background"}>
                 Background
@@ -2708,6 +2720,9 @@ class ThresholdModule extends i$2 {
 __decorateClass$4([
   n2({ attribute: false })
 ], ThresholdModule.prototype, "state");
+__decorateClass$4([
+  n2({ type: String })
+], ThresholdModule.prototype, "cardEntity");
 __decorateClass$4([
   r()
 ], ThresholdModule.prototype, "_open");
@@ -3327,7 +3342,7 @@ class CmsPanel extends i$2 {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.8</span>
+        <span class="version">v0.3.8.3</span>
       </div>
 
       ${!this._cardModPresent ? b`
@@ -3410,6 +3425,7 @@ class CmsPanel extends i$2 {
 
       <cms-threshold-module
         .state=${s2.threshold}
+        .cardEntity=${this.config?.entity ?? ""}
         @state-changed=${this._onThresholdChanged}
       ></cms-threshold-module>
 
@@ -3686,7 +3702,7 @@ async function startInjector() {
   patchDialogElement(DialogClass);
   injectIntoExistingDialogs();
 }
-const VERSION = "0.3.8";
+const VERSION = "0.3.8.3";
 if (window.cardModStudio) {
   console.warn(
     `[Card-Mod Studio] Already loaded (v${window.cardModStudio.version}). Skipping load of v${VERSION}. If you see duplicate "Style" buttons, clear your browser cache.`

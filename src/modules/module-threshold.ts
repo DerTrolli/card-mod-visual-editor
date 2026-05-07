@@ -8,6 +8,7 @@ export class ThresholdModule extends LitElement {
   @property({ attribute: false }) state: ThresholdModuleState = {
     ...DEFAULT_THRESHOLD,
   };
+  @property({ type: String }) cardEntity = '';
 
   @state() private _open = false;
 
@@ -115,9 +116,14 @@ export class ThresholdModule extends LitElement {
   }
 
   private _emit(changes: Partial<ThresholdModuleState>) {
+    const newState = { ...this.state, ...changes };
+    // Auto-set entityId to cardEntity when enabling if empty
+    if (changes.enabled && !newState.entityId && this.cardEntity) {
+      newState.entityId = this.cardEntity;
+    }
     this.dispatchEvent(
       new CustomEvent<ThresholdModuleState>('state-changed', {
-        detail: { ...this.state, ...changes },
+        detail: newState,
       }),
     );
   }
@@ -149,10 +155,10 @@ export class ThresholdModule extends LitElement {
         <input
           class="entity-input"
           type="text"
-          .value=${this.state.entityId}
+          .value=${this.state.entityId || this.cardEntity}
           @input=${(e: Event) =>
             this._emit({ entityId: (e.target as HTMLInputElement).value })}
-          placeholder="sensor.temperature"
+          placeholder=${this.cardEntity || 'sensor.temperature'}
         />
 
         <div class="control-row">
@@ -168,6 +174,9 @@ export class ThresholdModule extends LitElement {
             >
               <option value="icon-color" ?selected=${this.state.property === 'icon-color'}>
                 Icon Color
+              </option>
+              <option value="accent-color" ?selected=${this.state.property === 'accent-color'}>
+                Accent Color
               </option>
               <option value="background" ?selected=${this.state.property === 'background'}>
                 Background
