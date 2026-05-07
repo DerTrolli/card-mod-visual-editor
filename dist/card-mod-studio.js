@@ -1271,29 +1271,18 @@ ${iconDecls.map((d2) => `  ${d2}`).join("\n")}
 }`;
   return [container, titleP, titleIcon].join("\n\n");
 }
-function iconColorBlock(s2, cardType) {
+function iconColorBlock(s2) {
   if (!s2.enabled) return "";
-  const useCssVar = cardType === "sensor" || cardType === "entity";
   if (s2.mode === "plain") {
-    if (useCssVar) {
-      return `:host {
-  --paper-item-icon-color: ${s2.color};
-}`;
-    }
     return `ha-state-icon {
   color: ${s2.color} !important;
-}`;
-  }
-  if (useCssVar) {
-    return `:host {
-  --paper-item-icon-color: {{ '${s2.colorOn}' if is_state(config.entity, 'on') else '${s2.colorOff}' }};
 }`;
   }
   return `ha-state-icon {
   color: {{ '${s2.colorOn}' if is_state(config.entity, 'on') else '${s2.colorOff}' }} !important;
 }`;
 }
-function thresholdBlock(s2, cardType) {
+function thresholdBlock(s2) {
   if (!s2 || !s2.enabled || !s2.entityId || s2.rules.length === 0) return "";
   const stateExpr = `states('${s2.entityId}') | float(0)`;
   let jinja = "{{ ";
@@ -1306,17 +1295,10 @@ function thresholdBlock(s2, cardType) {
   jinja += ")".repeat(s2.rules.length - 1);
   jinja += " }}";
   switch (s2.property) {
-    case "icon-color": {
-      const useCssVar = cardType === "sensor" || cardType === "entity";
-      if (useCssVar) {
-        return `:host {
-  --paper-item-icon-color: ${jinja};
-}`;
-      }
+    case "icon-color":
       return `ha-state-icon {
   color: ${jinja} !important;
 }`;
-    }
     case "background":
       return `ha-card {
   background: ${jinja};
@@ -1350,9 +1332,9 @@ function generateCss(state, cardType) {
 ${body}
 }`);
   }
-  const iconColor = iconColorBlock(state.iconColor, cardType);
+  const iconColor = iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
-  const threshold = thresholdBlock(state.threshold, cardType);
+  const threshold = thresholdBlock(state.threshold);
   if (threshold) parts.push(threshold);
   const headingStyle = headingStyleBlocks(state.headingStyle);
   if (headingStyle) parts.push(headingStyle);

@@ -193,27 +193,14 @@ function headingStyleBlocks(s: HeadingStyleModuleState): string {
   return [container, titleP, titleIcon].join('\n\n');
 }
 
-function iconColorBlock(s: IconColorModuleState, cardType?: string): string {
+function iconColorBlock(s: IconColorModuleState): string {
   if (!s.enabled) return '';
 
-  // Sensor cards use CSS variable approach
-  const useCssVar = cardType === 'sensor' || cardType === 'entity';
-
   if (s.mode === 'plain') {
-    if (useCssVar) {
-      return `:host {\n  --paper-item-icon-color: ${s.color};\n}`;
-    }
     return `ha-state-icon {\n  color: ${s.color} !important;\n}`;
   }
 
   // Conditional mode
-  if (useCssVar) {
-    return (
-      `:host {\n` +
-      `  --paper-item-icon-color: {{ '${s.colorOn}' if is_state(config.entity, 'on') else '${s.colorOff}' }};\n` +
-      `}`
-    );
-  }
   return (
     `ha-state-icon {\n` +
     `  color: {{ '${s.colorOn}' if is_state(config.entity, 'on') else '${s.colorOff}' }} !important;\n` +
@@ -221,7 +208,7 @@ function iconColorBlock(s: IconColorModuleState, cardType?: string): string {
   );
 }
 
-function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string): string {
+function thresholdBlock(s: ThresholdModuleState | undefined): string {
   if (!s || !s.enabled || !s.entityId || s.rules.length === 0) return '';
 
   // Build nested Jinja2 ternary expression
@@ -241,13 +228,8 @@ function thresholdBlock(s: ThresholdModuleState | undefined, cardType?: string):
 
   // Generate CSS based on property type
   switch (s.property) {
-    case 'icon-color': {
-      const useCssVar = cardType === 'sensor' || cardType === 'entity';
-      if (useCssVar) {
-        return `:host {\n  --paper-item-icon-color: ${jinja};\n}`;
-      }
+    case 'icon-color':
       return `ha-state-icon {\n  color: ${jinja} !important;\n}`;
-    }
     case 'background':
       return `ha-card {\n  background: ${jinja};\n}`;
     case 'text-color':
@@ -282,10 +264,10 @@ export function generateCss(state: StudioState, cardType?: string): string {
     parts.push(`ha-card {\n${body}\n}`);
   }
 
-  const iconColor = iconColorBlock(state.iconColor, cardType);
+  const iconColor = iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
 
-  const threshold = thresholdBlock(state.threshold, cardType);
+  const threshold = thresholdBlock(state.threshold);
   if (threshold) parts.push(threshold);
 
   const headingStyle = headingStyleBlocks(state.headingStyle);
