@@ -9,14 +9,25 @@ export class BackgroundModule extends LitElement {
     ...DEFAULT_BACKGROUND,
   };
 
+  @state() private _open = false;
   @state() private _angle = DEFAULT_BACKGROUND.angle;
 
   static override styles = [moduleStyles, css``];
 
+  override firstUpdated() {
+    this._open = this.state.enabled;
+  }
+
   override updated(changed: Map<PropertyKey, unknown>) {
     if (changed.has('state')) {
+      const prev = changed.get('state') as BackgroundModuleState | undefined;
+      if (this.state.enabled && prev && !prev.enabled) this._open = true;
       this._angle = this.state.angle;
     }
+  }
+
+  private _toggleOpen() {
+    this._open = !this._open;
   }
 
   private _emit(changes: Partial<BackgroundModuleState>) {
@@ -30,15 +41,17 @@ export class BackgroundModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header">
+        <div class="module-header" @click=${this._toggleOpen}>
+          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🖼️ Background</span>
           <ha-switch
             .checked=${this.state.enabled}
+            @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
           ></ha-switch>
         </div>
-        ${this.state.enabled ? this._renderBody() : nothing}
+        ${this._open ? this._renderBody() : nothing}
       </div>
     `;
   }

@@ -1,27 +1,3 @@
-/**
- * cms-panel — Card-Mod Studio style editor panel (Phase 3).
- *
- * Data flow
- * ---------
- *  1. `config` prop set by injector from hui-dialog-edit-card._cardConfig.
- *  2. On first load or external config change, parser pipeline runs.
- *  3. StudioState is passed to each module component.
- *  4. Module fires `state-changed` → panel updates state, regenerates CSS,
- *     fires composed `config-changed` → HA updates _cardConfig → saves on
- *     user click. The preview re-renders automatically (HA reactive state).
- *
- * Re-parse guard
- * --------------
- * Stores JSON of last emitted config; skips re-parse when incoming config
- * matches — prevents feedback loop when HA passes our own config back.
- *
- * Entity-state awareness
- * ----------------------
- * Checks whether the card entity has binary on/off states by inspecting
- * `hass.states[entity]`. Passes this to modules so they can hide irrelevant
- * on/off controls for sensor-type cards.
- */
-
 import { LitElement, html, css, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import type {
@@ -50,7 +26,6 @@ import '../modules/module-animation.js';
 import '../modules/module-border.js';
 import '../modules/module-advanced.js';
 
-/** Card types that don't have binary on/off entity states. */
 const NON_STATE_CARD_TYPES = new Set([
   'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
   'energy-distribution', 'energy-usage-graph', 'calendar', 'todo-list',
@@ -63,6 +38,7 @@ export class CmsPanel extends LitElement {
 
   @state() private _cardModPresent = false;
   @state() private _studioState: StudioState | null = null;
+  @state() private _previewOpen = true;
 
   private _lastEmittedConfigJson: string | null = null;
 
@@ -91,14 +67,9 @@ export class CmsPanel extends LitElement {
     this._studioState = mapToStudioState(parsed);
   }
 
-  /**
-   * Returns true when the card's entity has binary on/off states.
-   * Falls back to true (show all controls) when unknown.
-   */
   private get _isStateAware(): boolean {
     const entityId = this.config?.entity as string | undefined;
     if (!entityId || !this.hass) {
-      // No entity or no hass — check card type as fallback
       return !NON_STATE_CARD_TYPES.has(this.config?.type ?? '');
     }
     const entity = this.hass.states[entityId];
@@ -242,11 +213,54 @@ export class CmsPanel extends LitElement {
       font-size: 13px;
     }
 
-    .preview-hint {
+    /* ---- Embedded live preview ---- */
+
+    .preview-section {
+      border: 1px solid var(--divider-color, #383838);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .preview-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+      color: var(--secondary-text-color, #9e9e9e);
+      transition: background 0.15s ease;
+    }
+
+    .preview-toggle:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .preview-chevron { font-size: 9px; }
+
+    .preview-body {
+      padding: 12px;
+      border-top: 1px solid var(--divider-color, #383838);
+      background: var(--lovelace-background, #111111);
+      display: flex;
+      justify-content: center;
+      /* Prevent accidentally clicking interactive card elements */
+      pointer-events: none;
+    }
+
+    .preview-body hui-card {
+      width: 100%;
+      pointer-events: none;
+    }
+
+    .preview-unavailable {
       font-size: 11px;
       color: var(--secondary-text-color, #9e9e9e);
       text-align: center;
-      margin-bottom: 12px;
+      margin: 8px 0;
     }
   `;
 
@@ -259,13 +273,13 @@ export class CmsPanel extends LitElement {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.0 — Phase 3</span>
+        <span class="version">v0.2.5</span>
       </div>
 
       ${!this._cardModPresent
         ? html`
             <div class="warning-banner">
-              ⚠️ card-mod not detected — install card-mod first or generated YAML won't apply.
+              ⚠️ card-mod not detected — install card-mod first or styles won't apply.
             </div>
           `
         : nothing}
@@ -276,21 +290,42 @@ export class CmsPanel extends LitElement {
     `;
   }
 
+  private _renderPreview() {
+    if (!this.config || !this.hass) return nothing;
+    const hasHuiCard = Boolean(customElements.get('hui-card'));
+    return html`
+      <div class="preview-section">
+        <div
+          class="preview-toggle"
+          @click=${() => { this._previewOpen = !this._previewOpen; }}
+        >
+          <span class="preview-chevron">${this._previewOpen ? '▼' : '▶'}</span>
+          <span>Live Preview</span>
+        </div>
+        ${this._previewOpen
+          ? html`
+              <div class="preview-body">
+                ${hasHuiCard
+                  ? html`<hui-card .hass=${this.hass} .config=${this.config}></hui-card>`
+                  : html`<p class="preview-unavailable">Preview unavailable — open a card editor first.</p>`}
+              </div>
+            `
+          : nothing}
+      </div>
+    `;
+  }
+
   private _renderModules(s: StudioState) {
     const stateAware = this._isStateAware;
-    // Auto-expand Advanced CSS when there's unrecognised content to show
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
 
     return html`
-      <p class="preview-hint">
-        💡 Changes apply live — watch the card preview on the right.
-      </p>
+      ${this._renderPreview()}
 
       ${hasUnrecognisedCss
         ? html`
             <div class="info-banner">
-              ℹ️ Some existing styles weren't recognised by visual modules — they're
-              preserved in Advanced CSS below.
+              ℹ️ Some existing styles weren't recognised — they're preserved in Advanced CSS.
             </div>
           `
         : nothing}

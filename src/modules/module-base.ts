@@ -22,6 +22,21 @@ export const moduleStyles = css`
     justify-content: space-between;
     padding: 10px 14px;
     background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease;
+  }
+
+  .module-header:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .module-chevron {
+    font-size: 9px;
+    color: var(--secondary-text-color, #9e9e9e);
+    width: 14px;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
   }
 
   .module-title {
@@ -30,6 +45,7 @@ export const moduleStyles = css`
     gap: 8px;
     font-size: 13px;
     font-weight: 500;
+    flex: 1;
   }
 
   .module-body {

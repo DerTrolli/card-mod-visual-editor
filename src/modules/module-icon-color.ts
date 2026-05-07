@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'lit';
-import { property } from 'lit/decorators.js';
+import { property, state } from 'lit/decorators.js';
 import type { IconColorModuleState } from '../types/index.js';
 import { DEFAULT_ICON_COLOR } from '../parser/state-mapper.js';
 import { moduleStyles } from './module-base.js';
@@ -9,13 +9,27 @@ export class IconColorModule extends LitElement {
     ...DEFAULT_ICON_COLOR,
   };
 
-  /**
-   * When false the card has no binary entity state (e.g. sensor cards).
-   * In that case we default to plain mode and hide the on/off pickers.
-   */
+  /** When false the card has no binary entity state (e.g. sensor cards). */
   @property({ type: Boolean, attribute: 'state-aware' }) stateAware = true;
 
+  @state() private _open = false;
+
   static override styles = [moduleStyles];
+
+  override firstUpdated() {
+    this._open = this.state.enabled;
+  }
+
+  override updated(changed: Map<PropertyKey, unknown>) {
+    if (changed.has('state')) {
+      const prev = changed.get('state') as IconColorModuleState | undefined;
+      if (this.state.enabled && prev && !prev.enabled) this._open = true;
+    }
+  }
+
+  private _toggleOpen() {
+    this._open = !this._open;
+  }
 
   private _emit(changes: Partial<IconColorModuleState>) {
     this.dispatchEvent(
@@ -28,21 +42,22 @@ export class IconColorModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header">
+        <div class="module-header" @click=${this._toggleOpen}>
+          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">🎨 Icon Color</span>
           <ha-switch
             .checked=${this.state.enabled}
+            @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
           ></ha-switch>
         </div>
-        ${this.state.enabled ? this._renderBody() : nothing}
+        ${this._open ? this._renderBody() : nothing}
       </div>
     `;
   }
 
   private _renderBody() {
-    // Force plain mode when not state-aware (e.g. sensor cards)
     const effectiveMode = !this.stateAware ? 'plain' : this.state.mode;
 
     return html`
@@ -121,22 +136,23 @@ export class IconColorModule extends LitElement {
     `;
   }
 
-  /**
-   * `<input type="color">` requires a valid 6-digit hex string.
-   * Named colors (like "yellow") and 3-digit hex can't be set as .value directly.
-   * We pass through hex strings and fall back to the default blue for named colors.
-   */
+  /** Resolves any CSS color (named, rgb(), hex) to a 6-digit hex for <input type="color">. */
   private _toHex(value: string): string {
-    if (value.startsWith('#') && (value.length === 4 || value.length === 7)) {
-      return value;
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
+    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
+      return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
     }
-    // Expand 3-digit hex
-    if (value.startsWith('#') && value.length === 4) {
-      const [, r, g, b] = value;
-      return `#${r}${r}${g}${g}${b}${b}`;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1; canvas.height = 1;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = value;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    } catch {
+      return DEFAULT_ICON_COLOR.colorOn;
     }
-    // Can't reliably convert named colors here — return the default
-    return DEFAULT_ICON_COLOR.colorOn;
   }
 }
 
