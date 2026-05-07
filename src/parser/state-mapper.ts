@@ -21,6 +21,7 @@ import type {
   AccentColorModuleState,
   BackgroundModuleState,
   BorderModuleState,
+  HeadingStyleModuleState,
   AdvancedModuleState,
   StudioState,
 } from '../types/index.js';
@@ -75,6 +76,15 @@ export const DEFAULT_BORDER: BorderModuleState = {
   borderColor: '#03a9f4',
 };
 
+export const DEFAULT_HEADING_STYLE: HeadingStyleModuleState = {
+  enabled: false,
+  fontSize: 24,
+  textColor: '#e1e1e1',
+  iconSize: 24,
+  iconColor: '#e1e1e1',
+  alignment: 'left',
+};
+
 // ---------------------------------------------------------------------------
 // Claimed-property tracking
 // ---------------------------------------------------------------------------
@@ -90,6 +100,9 @@ function claimKey(selector: string, property: string): string {
 export function mapToStudioState(parsed: CardModStyleState): StudioState {
   const haCard = findTarget(parsed.targets, 'ha-card');
   const haStateIcon = findTarget(parsed.targets, 'ha-state-icon');
+  const titleP = findTarget(parsed.targets, '.title p');
+  const titleIcon = findTarget(parsed.targets, '.title ha-icon');
+  const container = findTarget(parsed.targets, '.container');
 
   const claimed = new Set<string>();
 
@@ -100,6 +113,7 @@ export function mapToStudioState(parsed: CardModStyleState): StudioState {
     background: mapBackground(haCard, claimed),
     animation: { ...DEFAULT_ANIMATION },
     border: mapBorder(haCard, claimed),
+    headingStyle: mapHeadingStyle(titleP, titleIcon, container, claimed),
     advanced: mapAdvanced(parsed, claimed),
   };
 }
@@ -327,6 +341,95 @@ function mapBorder(haCard: CssTarget | null, claimed: Set<string>): BorderModule
       state.borderWidth = parseInt(match[1], 10);
       state.borderColor = match[3];
       claimed.add(claimKey(haCard.selector, 'border'));
+    }
+  }
+
+  return state;
+}
+
+// ---------------------------------------------------------------------------
+// Heading style module
+// ---------------------------------------------------------------------------
+
+const JUSTIFY_TO_ALIGN: Record<string, 'left' | 'center' | 'right'> = {
+  'flex-start': 'left',
+  center: 'center',
+  'flex-end': 'right',
+};
+
+const TEXT_ALIGN_MAP: Record<string, 'left' | 'center' | 'right'> = {
+  left: 'left',
+  center: 'center',
+  right: 'right',
+};
+
+function mapHeadingStyle(
+  titleP: CssTarget | null,
+  titleIcon: CssTarget | null,
+  container: CssTarget | null,
+  claimed: Set<string>,
+): HeadingStyleModuleState {
+  if (!titleP && !titleIcon && !container) return { ...DEFAULT_HEADING_STYLE };
+
+  const state: HeadingStyleModuleState = { ...DEFAULT_HEADING_STYLE };
+
+  if (titleP) {
+    const fontSizeProp = findProp(titleP, 'font-size');
+    if (fontSizeProp && !fontSizeProp.hasCondition) {
+      const m = fontSizeProp.value.match(/^(\d+(?:\.\d+)?)px$/);
+      if (m) {
+        state.enabled = true;
+        state.fontSize = parseFloat(m[1]);
+        claimed.add(claimKey(titleP.selector, 'font-size'));
+      }
+    }
+
+    const colorProp = findProp(titleP, 'color');
+    if (colorProp && !colorProp.hasCondition && colorProp.value.trim()) {
+      state.enabled = true;
+      state.textColor = colorProp.value.trim();
+      claimed.add(claimKey(titleP.selector, 'color'));
+    }
+
+    const textAlignProp = findProp(titleP, 'text-align');
+    if (textAlignProp && !textAlignProp.hasCondition) {
+      const a = TEXT_ALIGN_MAP[textAlignProp.value.trim()];
+      if (a) {
+        state.enabled = true;
+        state.alignment = a;
+        claimed.add(claimKey(titleP.selector, 'text-align'));
+      }
+    }
+  }
+
+  if (titleIcon) {
+    const iconSizeProp = findProp(titleIcon, '--mdc-icon-size');
+    if (iconSizeProp && !iconSizeProp.hasCondition) {
+      const m = iconSizeProp.value.match(/^(\d+(?:\.\d+)?)px$/);
+      if (m) {
+        state.enabled = true;
+        state.iconSize = parseFloat(m[1]);
+        claimed.add(claimKey(titleIcon.selector, '--mdc-icon-size'));
+      }
+    }
+
+    const iconColorProp = findProp(titleIcon, 'color');
+    if (iconColorProp && !iconColorProp.hasCondition && iconColorProp.value.trim()) {
+      state.enabled = true;
+      state.iconColor = iconColorProp.value.trim();
+      claimed.add(claimKey(titleIcon.selector, 'color'));
+    }
+  }
+
+  if (container) {
+    const justifyProp = findProp(container, 'justify-content');
+    if (justifyProp && !justifyProp.hasCondition) {
+      const a = JUSTIFY_TO_ALIGN[justifyProp.value.trim()];
+      if (a) {
+        state.enabled = true;
+        state.alignment = a;
+        claimed.add(claimKey(container.selector, 'justify-content'));
+      }
     }
   }
 

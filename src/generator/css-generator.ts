@@ -12,6 +12,7 @@ import type {
   BackgroundModuleState,
   AnimationModuleState,
   BorderModuleState,
+  HeadingStyleModuleState,
 } from '../types/index.js';
 
 // ---------------------------------------------------------------------------
@@ -149,6 +150,34 @@ function animationDecls(s: AnimationModuleState): string[] {
   return decls;
 }
 
+function headingStyleBlocks(s: HeadingStyleModuleState): string {
+  if (!s.enabled) return '';
+
+  const alignMap: Record<string, string> = {
+    left: 'flex-start',
+    center: 'center',
+    right: 'flex-end',
+  };
+
+  const titlePDecls = [
+    `font-size: ${s.fontSize}px;`,
+    `color: ${s.textColor};`,
+    `text-align: ${s.alignment};`,
+  ];
+  const titleP = `.title p {\n${titlePDecls.map((d) => `  ${d}`).join('\n')}\n}`;
+
+  const iconDecls = [
+    `--mdc-icon-size: ${s.iconSize}px;`,
+    `color: ${s.iconColor};`,
+  ];
+  const titleIcon = `.title ha-icon {\n${iconDecls.map((d) => `  ${d}`).join('\n')}\n}`;
+
+  const alignVal = alignMap[s.alignment] ?? 'flex-start';
+  const container = `.container {\n  justify-content: ${alignVal};\n}`;
+
+  return [container, titleP, titleIcon].join('\n\n');
+}
+
 function iconColorBlock(s: IconColorModuleState): string {
   if (!s.enabled) return '';
 
@@ -188,6 +217,9 @@ export function generateCss(state: StudioState): string {
 
   const iconColor = iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
+
+  const headingStyle = headingStyleBlocks(state.headingStyle);
+  if (headingStyle) parts.push(headingStyle);
 
   if (state.advanced.rawCss.trim()) {
     parts.push(state.advanced.rawCss.trim());

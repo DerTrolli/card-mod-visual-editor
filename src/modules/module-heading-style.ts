@@ -1,0 +1,172 @@
+import { LitElement, html, nothing } from 'lit';
+import { property, state } from 'lit/decorators.js';
+import type { HeadingStyleModuleState } from '../types/index.js';
+import { DEFAULT_HEADING_STYLE } from '../parser/state-mapper.js';
+import { moduleStyles } from './module-base.js';
+
+export class HeadingStyleModule extends LitElement {
+  @property({ attribute: false }) state: HeadingStyleModuleState = {
+    ...DEFAULT_HEADING_STYLE,
+  };
+
+  @state() private _open = false;
+  @state() private _fontSize = DEFAULT_HEADING_STYLE.fontSize;
+  @state() private _iconSize = DEFAULT_HEADING_STYLE.iconSize;
+
+  static override styles = [moduleStyles];
+
+  override firstUpdated() {
+    this._open = this.state.enabled;
+  }
+
+  override updated(changed: Map<PropertyKey, unknown>) {
+    if (changed.has('state')) {
+      const prev = changed.get('state') as HeadingStyleModuleState | undefined;
+      if (this.state.enabled && prev && !prev.enabled) this._open = true;
+      this._fontSize = this.state.fontSize;
+      this._iconSize = this.state.iconSize;
+    }
+  }
+
+  private _toggleOpen() {
+    this._open = !this._open;
+  }
+
+  private _emit(changes: Partial<HeadingStyleModuleState>) {
+    this.dispatchEvent(
+      new CustomEvent<HeadingStyleModuleState>('state-changed', {
+        detail: { ...this.state, ...changes },
+      }),
+    );
+  }
+
+  private _toHex(value: string): string {
+    if (/^#[0-9a-fA-F]{6}$/.test(value)) return value;
+    if (/^#[0-9a-fA-F]{3}$/.test(value)) {
+      return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`;
+    }
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1; canvas.height = 1;
+      const ctx = canvas.getContext('2d')!;
+      ctx.fillStyle = value;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    } catch {
+      return DEFAULT_HEADING_STYLE.textColor;
+    }
+  }
+
+  override render() {
+    return html`
+      <div class="module">
+        <div class="module-header" @click=${this._toggleOpen}>
+          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
+          <span class="module-title">🔤 Heading Style</span>
+          <ha-switch
+            .checked=${this.state.enabled}
+            @click=${(e: Event) => e.stopPropagation()}
+            @change=${(e: Event) =>
+              this._emit({ enabled: (e.target as HTMLInputElement).checked })}
+          ></ha-switch>
+        </div>
+        ${this._open ? this._renderBody() : nothing}
+      </div>
+    `;
+  }
+
+  private _renderBody() {
+    return html`
+      <div class="module-body">
+        <div class="control-row">
+          <span class="control-label">Font size</span>
+          <div class="control-right">
+            <ha-slider
+              min="12"
+              max="48"
+              step="1"
+              .value=${String(this._fontSize)}
+              @input=${(e: Event) => {
+                this._fontSize = parseFloat((e.target as HTMLInputElement).value);
+              }}
+              @change=${(e: Event) =>
+                this._emit({
+                  fontSize: parseFloat((e.target as HTMLInputElement).value),
+                })}
+            ></ha-slider>
+            <span class="value-label">${this._fontSize}px</span>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <span class="control-label">Text color</span>
+          <div class="control-right">
+            <input
+              type="color"
+              .value=${this._toHex(this.state.textColor)}
+              @input=${(e: Event) =>
+                this._emit({ textColor: (e.target as HTMLInputElement).value })}
+            />
+            <span class="color-label">${this.state.textColor}</span>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <span class="control-label">Icon size</span>
+          <div class="control-right">
+            <ha-slider
+              min="12"
+              max="48"
+              step="1"
+              .value=${String(this._iconSize)}
+              @input=${(e: Event) => {
+                this._iconSize = parseFloat((e.target as HTMLInputElement).value);
+              }}
+              @change=${(e: Event) =>
+                this._emit({
+                  iconSize: parseFloat((e.target as HTMLInputElement).value),
+                })}
+            ></ha-slider>
+            <span class="value-label">${this._iconSize}px</span>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <span class="control-label">Icon color</span>
+          <div class="control-right">
+            <input
+              type="color"
+              .value=${this._toHex(this.state.iconColor)}
+              @input=${(e: Event) =>
+                this._emit({ iconColor: (e.target as HTMLInputElement).value })}
+            />
+            <span class="color-label">${this.state.iconColor}</span>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <span class="control-label">Alignment</span>
+          <div class="control-right">
+            <select
+              .value=${this.state.alignment}
+              @change=${(e: Event) =>
+                this._emit({
+                  alignment: (e.target as HTMLSelectElement).value as
+                    | 'left'
+                    | 'center'
+                    | 'right',
+                })}
+            >
+              <option value="left" ?selected=${this.state.alignment === 'left'}>Left</option>
+              <option value="center" ?selected=${this.state.alignment === 'center'}>Center</option>
+              <option value="right" ?selected=${this.state.alignment === 'right'}>Right</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+customElements.define('cms-heading-style-module', HeadingStyleModule);

@@ -131,6 +131,15 @@ export interface AdvancedModuleState {
   rawCss: string;
 }
 
+export interface HeadingStyleModuleState {
+  enabled: boolean;
+  fontSize: number;        // px, 12–48
+  textColor: string;       // CSS color for ha-card .title p
+  iconSize: number;        // px for --mdc-icon-size on ha-card .title ha-icon
+  iconColor: string;       // CSS color for ha-card .title ha-icon
+  alignment: 'left' | 'center' | 'right';
+}
+
 /** Aggregate state of the entire Style panel. */
 export interface StudioState {
   filter: FilterModuleState;
@@ -139,6 +148,7 @@ export interface StudioState {
   background: BackgroundModuleState;
   animation: AnimationModuleState;
   border: BorderModuleState;
+  headingStyle: HeadingStyleModuleState;
   advanced: AdvancedModuleState;
 }
 
