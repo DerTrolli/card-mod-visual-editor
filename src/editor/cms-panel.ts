@@ -11,6 +11,7 @@ import type {
   AnimationModuleState,
   BorderModuleState,
   AdvancedModuleState,
+  HeadingStyleModuleState,
 } from '../types/index.js';
 import { isCardModInstalled } from '../utils/dom-helpers.js';
 import { parseCardModConfig } from '../parser/yaml-parser.js';
@@ -25,11 +26,43 @@ import '../modules/module-background.js';
 import '../modules/module-animation.js';
 import '../modules/module-border.js';
 import '../modules/module-advanced.js';
+import '../modules/module-heading-style.js';
 
 const NON_STATE_CARD_TYPES = new Set([
   'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
   'energy-distribution', 'energy-usage-graph', 'calendar', 'todo-list',
   'weather-forecast', 'sun', 'map', 'media-control',
+]);
+
+const CONTAINER_CARD_TYPES = new Set([
+  'grid', 'vertical-stack', 'horizontal-stack', 'sections', 'conditional',
+]);
+
+// Cards where animating ha-card makes no sense (data viz, complex UI, picture).
+const NO_ANIMATION_TYPES = new Set([
+  'gauge', 'history-graph', 'statistics-graph', 'statistic',
+  'energy-distribution', 'energy-usage-graph',
+  'thermostat', 'humidifier', 'light', 'alarm-panel',
+  'media-control', 'weather-forecast', 'calendar', 'logbook', 'activity',
+  'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
+  'heading', 'picture', 'picture-entity', 'picture-glance', 'picture-elements',
+]);
+
+// Cards where background styling is irrelevant (image fills card, or iframe).
+const NO_BACKGROUND_TYPES = new Set([
+  'picture', 'picture-entity', 'picture-glance', 'picture-elements',
+  'iframe', 'webpage', 'map',
+]);
+
+// Cards where ha-state-icon is absent — Icon Color module is hidden.
+const NO_ICON_COLOR_TYPES = new Set([
+  'sensor', 'gauge', 'history-graph', 'statistics-graph', 'statistic',
+  'energy-distribution', 'energy-usage-graph',
+  'thermostat', 'humidifier', 'light', 'alarm-panel',
+  'media-control', 'weather-forecast', 'calendar', 'logbook', 'activity',
+  'markdown', 'map', 'iframe', 'webpage', 'shopping-list', 'todo-list',
+  'picture', 'picture-entity',
+  'heading',
 ]);
 
 export class CmsPanel extends LitElement {
@@ -65,6 +98,26 @@ export class CmsPanel extends LitElement {
 
     const parsed = parseCardModConfig(this.config);
     this._studioState = mapToStudioState(parsed);
+  }
+
+  private get _isContainerCard(): boolean {
+    return CONTAINER_CARD_TYPES.has(this.config?.type ?? '');
+  }
+
+  private get _showIconColor(): boolean {
+    return !NO_ICON_COLOR_TYPES.has(this.config?.type ?? '');
+  }
+
+  private get _showAnimation(): boolean {
+    return !NO_ANIMATION_TYPES.has(this.config?.type ?? '');
+  }
+
+  private get _showBackground(): boolean {
+    return !NO_BACKGROUND_TYPES.has(this.config?.type ?? '');
+  }
+
+  private get _showHeadingStyle(): boolean {
+    return this.config?.type === 'heading';
   }
 
   private get _isStateAware(): boolean {
@@ -127,6 +180,12 @@ export class CmsPanel extends LitElement {
   private _onAdvancedChanged(e: CustomEvent<AdvancedModuleState>) {
     if (!this._studioState) return;
     this._studioState = { ...this._studioState, advanced: e.detail };
+    this._emitConfigChanged();
+  }
+
+  private _onHeadingStyleChanged(e: CustomEvent<HeadingStyleModuleState>) {
+    if (!this._studioState) return;
+    this._studioState = { ...this._studioState, headingStyle: e.detail };
     this._emitConfigChanged();
   }
 
@@ -262,6 +321,23 @@ export class CmsPanel extends LitElement {
       text-align: center;
       margin: 8px 0;
     }
+
+    .container-banner {
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: rgba(156, 39, 176, 0.12);
+      border: 1px solid #9c27b0;
+      color: #ce93d8;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .container-banner strong {
+      display: block;
+      margin-bottom: 4px;
+      color: #e1bee7;
+    }
   `;
 
   // ---------------------------------------------------------------------------
@@ -273,7 +349,7 @@ export class CmsPanel extends LitElement {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.2.5</span>
+        <span class="version">v0.3.7</span>
       </div>
 
       ${!this._cardModPresent
@@ -316,7 +392,15 @@ export class CmsPanel extends LitElement {
   }
 
   private _renderModules(s: StudioState) {
+    if (this._isContainerCard) {
+      return this._renderContainerCard(s);
+    }
+
     const stateAware = this._isStateAware;
+    const showIconColor = this._showIconColor;
+    const showAnimation = this._showAnimation;
+    const showBackground = this._showBackground;
+    const showHeadingStyle = this._showHeadingStyle;
     const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
 
     return html`
@@ -330,31 +414,90 @@ export class CmsPanel extends LitElement {
           `
         : nothing}
 
+      ${showHeadingStyle
+        ? html`
+            <cms-heading-style-module
+              .state=${s.headingStyle}
+              @state-changed=${this._onHeadingStyleChanged}
+            ></cms-heading-style-module>
+          `
+        : nothing}
+
       <cms-filter-module
         .state=${s.filter}
         @state-changed=${this._onFilterChanged}
       ></cms-filter-module>
 
-      <cms-accent-color-module
-        .state=${s.accentColor}
-        @state-changed=${this._onAccentColorChanged}
-      ></cms-accent-color-module>
+      ${!showHeadingStyle
+        ? html`
+            <cms-accent-color-module
+              .state=${s.accentColor}
+              @state-changed=${this._onAccentColorChanged}
+            ></cms-accent-color-module>
+          `
+        : nothing}
 
-      <cms-icon-color-module
-        .state=${s.iconColor}
-        ?state-aware=${stateAware}
-        @state-changed=${this._onIconColorChanged}
-      ></cms-icon-color-module>
+      ${showIconColor
+        ? html`
+            <cms-icon-color-module
+              .state=${s.iconColor}
+              ?state-aware=${stateAware}
+              @state-changed=${this._onIconColorChanged}
+            ></cms-icon-color-module>
+          `
+        : nothing}
 
-      <cms-background-module
-        .state=${s.background}
-        @state-changed=${this._onBackgroundChanged}
-      ></cms-background-module>
+      ${showBackground
+        ? html`
+            <cms-background-module
+              .state=${s.background}
+              @state-changed=${this._onBackgroundChanged}
+            ></cms-background-module>
+          `
+        : nothing}
 
-      <cms-animation-module
-        .state=${s.animation}
-        @state-changed=${this._onAnimationChanged}
-      ></cms-animation-module>
+      ${showAnimation
+        ? html`
+            <cms-animation-module
+              .state=${s.animation}
+              @state-changed=${this._onAnimationChanged}
+            ></cms-animation-module>
+          `
+        : nothing}
+
+      <cms-border-module
+        .state=${s.border}
+        @state-changed=${this._onBorderChanged}
+      ></cms-border-module>
+
+      <cms-advanced-module
+        .state=${s.advanced}
+        ?open=${hasUnrecognisedCss}
+        @state-changed=${this._onAdvancedChanged}
+      ></cms-advanced-module>
+    `;
+  }
+
+  private _renderContainerCard(s: StudioState) {
+    const cardType = this.config?.type ?? 'layout';
+    const hasUnrecognisedCss = !!s.advanced.rawCss.trim();
+    return html`
+      ${this._renderPreview()}
+
+      <div class="container-banner">
+        <strong>🗂️ Layout card — style the child cards</strong>
+        "${cardType}" is a container. Card-mod styles applied here have no
+        visual effect. Open each child card individually and click the Style
+        button there.
+      </div>
+
+      ${hasUnrecognisedCss
+        ? html`
+            <div class="info-banner">
+              ℹ️ Some existing styles weren't recognised — they're preserved in Advanced CSS.
+            </div>
+          `
+        : nothing}
 
       <cms-border-module
         .state=${s.border}
