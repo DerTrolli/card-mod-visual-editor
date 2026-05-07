@@ -7,16 +7,27 @@ import { moduleStyles } from './module-base.js';
 export class BorderModule extends LitElement {
   @property({ attribute: false }) state: BorderModuleState = { ...DEFAULT_BORDER };
 
+  @state() private _open = false;
   @state() private _radiusPx = DEFAULT_BORDER.radiusPx;
   @state() private _borderWidth = DEFAULT_BORDER.borderWidth;
 
   static override styles = [moduleStyles, css``];
 
+  override firstUpdated() {
+    this._open = this.state.enabled;
+  }
+
   override updated(changed: Map<PropertyKey, unknown>) {
     if (changed.has('state')) {
+      const prev = changed.get('state') as BorderModuleState | undefined;
+      if (this.state.enabled && prev && !prev.enabled) this._open = true;
       this._radiusPx = this.state.radiusPx;
       this._borderWidth = this.state.borderWidth;
     }
+  }
+
+  private _toggleOpen() {
+    this._open = !this._open;
   }
 
   private _emit(changes: Partial<BorderModuleState>) {
@@ -30,15 +41,17 @@ export class BorderModule extends LitElement {
   override render() {
     return html`
       <div class="module">
-        <div class="module-header">
+        <div class="module-header" @click=${this._toggleOpen}>
+          <span class="module-chevron">${this._open ? '▼' : '▶'}</span>
           <span class="module-title">⬛ Border & Radius</span>
           <ha-switch
             .checked=${this.state.enabled}
+            @click=${(e: Event) => e.stopPropagation()}
             @change=${(e: Event) =>
               this._emit({ enabled: (e.target as HTMLInputElement).checked })}
           ></ha-switch>
         </div>
-        ${this.state.enabled ? this._renderBody() : nothing}
+        ${this._open ? this._renderBody() : nothing}
       </div>
     `;
   }
