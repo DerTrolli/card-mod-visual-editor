@@ -184,6 +184,9 @@ export class ThresholdModule extends LitElement {
               <option value="text-color" ?selected=${this.state.property === 'text-color'}>
                 Text Color
               </option>
+              <option value="border-color" ?selected=${this.state.property === 'border-color'}>
+                Border Color
+              </option>
             </select>
           </div>
         </div>

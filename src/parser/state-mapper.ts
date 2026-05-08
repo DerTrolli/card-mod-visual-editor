@@ -570,6 +570,10 @@ function mapThreshold(
     const accentProp = findProp(haCard, '--accent-color');
     if (accentProp?.hasCondition && !accentProp.onValue)
       candidates.push({ target: haCard, cssProperty: '--accent-color', thresholdProperty: 'accent-color' });
+
+    const borderColorProp = findProp(haCard, 'border-color');
+    if (borderColorProp?.hasCondition && !borderColorProp.onValue)
+      candidates.push({ target: haCard, cssProperty: 'border-color', thresholdProperty: 'border-color' });
   }
 
   if (haStateIcon) {

@@ -150,7 +150,7 @@ export interface ThresholdRule {
 export interface ThresholdModuleState {
   enabled: boolean;
   entityId: string;
-  property: 'icon-color' | 'background' | 'text-color' | 'accent-color';
+  property: 'icon-color' | 'background' | 'text-color' | 'accent-color' | 'border-color';
   rules: ThresholdRule[];
   defaultColor: string;
 }
