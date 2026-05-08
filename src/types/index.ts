@@ -91,8 +91,8 @@ export interface FilterModuleState {
 
 export interface IconColorModuleState {
   enabled: boolean;
-  /** plain = single static color; conditional = on/off entity-state colors */
-  mode: 'plain' | 'conditional';
+  /** plain = single static color; conditional = on/off entity-state colors; light = use actual light rgb_color attribute */
+  mode: 'plain' | 'conditional' | 'light';
   color: string;            // used when mode='plain'
   colorOn: string;          // used when mode='conditional'
   colorOff: string;         // used when mode='conditional'
@@ -150,7 +150,7 @@ export interface ThresholdRule {
 export interface ThresholdModuleState {
   enabled: boolean;
   entityId: string;
-  property: 'icon-color' | 'background' | 'text-color' | 'accent-color';
+  property: 'icon-color' | 'background' | 'text-color' | 'accent-color' | 'border-color';
   rules: ThresholdRule[];
   defaultColor: string;
 }

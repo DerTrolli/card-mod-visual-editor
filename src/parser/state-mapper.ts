@@ -24,6 +24,7 @@ import type {
   HeadingStyleModuleState,
   AnimationModuleState,
   ThresholdModuleState,
+  ThresholdRule,
   AdvancedModuleState,
   StudioState,
 } from '../types/index.js';
@@ -168,7 +169,6 @@ function mapAnimation(
 export function mapToStudioState(parsed: CardModStyleState): StudioState {
   const haCard = findTarget(parsed.targets, 'ha-card');
   const haStateIcon = findTarget(parsed.targets, 'ha-state-icon');
-  const hostTarget = findTarget(parsed.targets, ':host');
   const titleP = findTarget(parsed.targets, '.title p');
   const titleIcon = findTarget(parsed.targets, '.title ha-icon');
   const container = findTarget(parsed.targets, '.container');
@@ -183,7 +183,7 @@ export function mapToStudioState(parsed: CardModStyleState): StudioState {
     animation: mapAnimation(haCard, claimed),
     border: mapBorder(haCard, claimed),
     headingStyle: mapHeadingStyle(titleP, titleIcon, container, claimed),
-    threshold: mapThreshold(haCard, haStateIcon, hostTarget, claimed),
+    threshold: mapThreshold(haCard, haStateIcon, claimed),
     advanced: mapAdvanced(parsed, claimed),
   };
 }
@@ -297,6 +297,19 @@ function mapIconColor(
   if (!colorProp) return { ...DEFAULT_ICON_COLOR };
 
   claimed.add(claimKey(haStateIcon.selector, 'color'));
+
+  // Light mode — contains rgb_color attribute access
+  if (colorProp.hasCondition && colorProp.value.includes('rgb_color')) {
+    const fallbackMatch = colorProp.value.match(/else\s+'([^']+)'/);
+    const colorOff = fallbackMatch ? fallbackMatch[1] : DEFAULT_ICON_COLOR.colorOff;
+    return {
+      enabled: true,
+      mode: 'light',
+      color: colorOff,
+      colorOn: colorOff,
+      colorOff,
+    };
+  }
 
   if (colorProp.hasCondition && colorProp.onValue && colorProp.offValue) {
     // Jinja2 on/off conditional — map to conditional mode
@@ -510,19 +523,92 @@ function mapHeadingStyle(
 // Threshold module
 // ---------------------------------------------------------------------------
 
-function mapThreshold(
-  _haCard: CssTarget | null,
-  _haStateIcon: CssTarget | null,
-  _hostTarget: CssTarget | null,
-  _claimed: Set<string>,
-): ThresholdModuleState {
-  // Threshold patterns are complex nested ternaries with states() calls.
-  // For now, we return the default state — threshold rules created in the UI
-  // will be preserved, but we won't parse existing threshold CSS back into rules.
-  // This is acceptable because threshold is a new feature users will create fresh.
+function parseThresholdJinja(value: string): {
+  entityId: string;
+  rules: ThresholdRule[];
+  defaultColor: string;
+} | null {
+  if (!value.includes('float(0)')) return null;
 
-  // Future enhancement: parse nested Jinja2 ternaries like:
-  // {{ '#blue' if states('sensor.temp') | float(0) < 18 else ('#red' if ... else '#gray') }}
+  const RULE_RE =
+    /'(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)'\s+if\s+states\('([^']+)'\)\s*\|\s*float\(0\)\s*(>=|<=|>|<|==|!=)\s*([\d.]+(?:\.\d+)?)/g;
+  const DEFAULT_RE = /else\s+'(#[0-9a-fA-F]{3,8}|[a-zA-Z]+)'\s*[)}\s]/;
+
+  const rules: ThresholdRule[] = [];
+  let entityId = '';
+  let idx = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = RULE_RE.exec(value)) !== null) {
+    const [, color, entity, operator, numStr] = match;
+    entityId = entity;
+    rules.push({
+      id: String(idx++),
+      operator: operator as ThresholdRule['operator'],
+      value: parseFloat(numStr),
+      color,
+    });
+  }
+
+  if (rules.length === 0 || !entityId) return null;
+
+  const defaultMatch = DEFAULT_RE.exec(value);
+  const defaultColor = defaultMatch ? defaultMatch[1] : DEFAULT_THRESHOLD.defaultColor;
+
+  return { entityId, rules, defaultColor };
+}
+
+function mapThreshold(
+  haCard: CssTarget | null,
+  haStateIcon: CssTarget | null,
+  claimed: Set<string>,
+): ThresholdModuleState {
+  type Candidate = {
+    target: CssTarget;
+    cssProperty: string;
+    thresholdProperty: ThresholdModuleState['property'];
+  };
+
+  const candidates: Candidate[] = [];
+
+  if (haCard) {
+    const bgProp = findProp(haCard, 'background');
+    if (bgProp?.hasCondition && !bgProp.onValue)
+      candidates.push({ target: haCard, cssProperty: 'background', thresholdProperty: 'background' });
+
+    const colorProp = findProp(haCard, 'color');
+    if (colorProp?.hasCondition && !colorProp.onValue)
+      candidates.push({ target: haCard, cssProperty: 'color', thresholdProperty: 'text-color' });
+
+    const accentProp = findProp(haCard, '--accent-color');
+    if (accentProp?.hasCondition && !accentProp.onValue)
+      candidates.push({ target: haCard, cssProperty: '--accent-color', thresholdProperty: 'accent-color' });
+
+    const borderColorProp = findProp(haCard, 'border-color');
+    if (borderColorProp?.hasCondition && !borderColorProp.onValue)
+      candidates.push({ target: haCard, cssProperty: 'border-color', thresholdProperty: 'border-color' });
+  }
+
+  if (haStateIcon) {
+    const colorProp = findProp(haStateIcon, 'color');
+    if (colorProp?.hasCondition && !colorProp.onValue)
+      candidates.push({ target: haStateIcon, cssProperty: 'color', thresholdProperty: 'icon-color' });
+  }
+
+  for (const { target, cssProperty, thresholdProperty } of candidates) {
+    const prop = findProp(target, cssProperty)!;
+    const parsed = parseThresholdJinja(prop.value);
+    if (parsed) {
+      claimed.add(claimKey(target.selector, cssProperty));
+      return {
+        enabled: true,
+        entityId: parsed.entityId,
+        property: thresholdProperty,
+        rules: parsed.rules,
+        defaultColor: parsed.defaultColor,
+      };
+    }
+  }
 
   return { ...DEFAULT_THRESHOLD };
 }

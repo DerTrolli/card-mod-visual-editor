@@ -14,6 +14,7 @@ import {
   DEFAULT_ANIMATION,
   DEFAULT_BORDER,
   DEFAULT_HEADING_STYLE,
+  DEFAULT_THRESHOLD,
   mapToStudioState,
 } from '../src/parser/state-mapper.js';
 import { parseCardModConfig } from '../src/parser/yaml-parser.js';
@@ -32,6 +33,7 @@ function makeState(overrides: Partial<StudioState> = {}): StudioState {
     animation: { ...DEFAULT_ANIMATION },
     border: { ...DEFAULT_BORDER },
     headingStyle: { ...DEFAULT_HEADING_STYLE },
+    threshold: { ...DEFAULT_THRESHOLD },
     advanced: { rawCss: '' },
     ...overrides,
   };
@@ -373,6 +375,70 @@ describe('generateCss — heading style', () => {
 });
 
 // ---------------------------------------------------------------------------
+// generateCss — threshold module
+// ---------------------------------------------------------------------------
+
+describe('generateCss — threshold', () => {
+  it('sorts > rules descending so highest value is checked first', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.score',
+        property: 'background',
+        rules: [
+          { id: '0', operator: '>', value: 0, color: '#000000' },
+          { id: '1', operator: '>', value: 50, color: '#ff0000' },
+          { id: '2', operator: '>', value: 80, color: '#00ff00' },
+        ],
+        defaultColor: '#888888',
+      },
+    }));
+    // 80 must appear before 50 before 0 in the generated Jinja2
+    const idx80 = css.indexOf('> 80');
+    const idx50 = css.indexOf('> 50');
+    const idx0  = css.indexOf('> 0');
+    expect(idx80).toBeLessThan(idx50);
+    expect(idx50).toBeLessThan(idx0);
+  });
+
+  it('sorts < rules ascending so lowest value is checked first', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.score',
+        property: 'background',
+        rules: [
+          { id: '0', operator: '<', value: 80, color: '#00ff00' },
+          { id: '1', operator: '<', value: 50, color: '#ff0000' },
+          { id: '2', operator: '<', value: 20, color: '#000000' },
+        ],
+        defaultColor: '#888888',
+      },
+    }));
+    const idx20 = css.indexOf('< 20');
+    const idx50 = css.indexOf('< 50');
+    const idx80 = css.indexOf('< 80');
+    expect(idx20).toBeLessThan(idx50);
+    expect(idx50).toBeLessThan(idx80);
+  });
+
+  it('emits icon-color threshold on ha-state-icon', () => {
+    const css = generateCss(makeState({
+      threshold: {
+        enabled: true,
+        entityId: 'sensor.temp',
+        property: 'icon-color',
+        rules: [{ id: '0', operator: '>=', value: 30, color: '#ff0000' }],
+        defaultColor: '#888888',
+      },
+    }));
+    expect(css).toContain('ha-state-icon');
+    expect(css).toContain('color:');
+    expect(css).toContain('>= 30');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // generateCss — advanced rawCss passthrough
 // ---------------------------------------------------------------------------
 
@@ -486,6 +552,26 @@ describe('round-trip', () => {
     expect(generated).toContain('--accent-color: yellow;');
     expect(generated).toContain('color: yellow !important;');
     expect(generated).not.toContain('is_state');
+  });
+
+  it('threshold background round-trips with no rawCss', () => {
+    const original =
+      "ha-card {\n  background: {{ '#2196F3' if states('sensor.temp') | float(0) >= 85 else ('#4caf50' if states('sensor.temp') | float(0) >= 72 else '#888888') }};\n}";
+    const parsed = parseCardModConfig({ type: 'sensor', card_mod: { style: original } });
+    const state = mapToStudioState(parsed);
+
+    expect(state.threshold.enabled).toBe(true);
+    expect(state.threshold.entityId).toBe('sensor.temp');
+    expect(state.threshold.property).toBe('background');
+    expect(state.threshold.rules).toHaveLength(2);
+    expect(state.threshold.defaultColor).toBe('#888888');
+    expect(state.advanced.rawCss).toBe('');
+
+    const generated = generateCss(state);
+    expect(generated).toContain("states('sensor.temp') | float(0) >= 85");
+    expect(generated).toContain("states('sensor.temp') | float(0) >= 72");
+    expect(generated).toContain('#2196F3');
+    expect(generated).toContain("else '#888888'");
   });
 
   it('heading style round-trips with no rawCss', () => {
