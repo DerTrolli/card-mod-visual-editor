@@ -216,14 +216,24 @@ function thresholdBlock(s: ThresholdModuleState | undefined): string {
 
   const stateExpr = `states('${s.entityId}') | float(0)`;
 
+  // Sort so the nested ternary evaluates correctly:
+  // > / >= operators need highest value first; < / <= need lowest first.
+  const firstOp = s.rules[0]?.operator ?? '>';
+  const sortedRules = [...s.rules];
+  if (firstOp === '>' || firstOp === '>=') {
+    sortedRules.sort((a, b) => b.value - a.value);
+  } else if (firstOp === '<' || firstOp === '<=') {
+    sortedRules.sort((a, b) => a.value - b.value);
+  }
+
   let jinja = '{{ ';
-  for (let i = 0; i < s.rules.length; i++) {
-    const rule = s.rules[i];
+  for (let i = 0; i < sortedRules.length; i++) {
+    const rule = sortedRules[i];
     if (i > 0) jinja += ' else (';
     jinja += `'${rule.color}' if ${stateExpr} ${rule.operator} ${rule.value}`;
   }
   jinja += ` else '${s.defaultColor}'`;
-  jinja += ')'.repeat(s.rules.length - 1);
+  jinja += ')'.repeat(sortedRules.length - 1);
   jinja += ' }}';
 
   // Generate CSS based on property type
