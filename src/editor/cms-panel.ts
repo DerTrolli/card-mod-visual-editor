@@ -152,9 +152,7 @@ export class CmsPanel extends LitElement {
   private _generateEntityRowCss(style: EntitiesRowStyle): string {
     const decls: string[] = [];
     if (style.iconColor) {
-      // Set both: --state-icon-color (modern HA) and legacy --paper-item-icon-color
       decls.push(`  --state-icon-color: ${style.iconColor};`);
-      decls.push(`  --paper-item-icon-color: ${style.iconColor};`);
     }
     if (style.textColor) decls.push(`  color: ${style.textColor};`);
     if (!decls.length) return '';
@@ -564,7 +562,7 @@ export class CmsPanel extends LitElement {
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.14</span>
+        <span class="version">v0.3.15</span>
       </div>
 
       <div class="panel-body ${hasPreview ? '' : 'no-preview'}">

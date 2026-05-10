@@ -3516,7 +3516,6 @@ class CmsPanel extends i$2 {
     const decls = [];
     if (style.iconColor) {
       decls.push(`  --state-icon-color: ${style.iconColor};`);
-      decls.push(`  --paper-item-icon-color: ${style.iconColor};`);
     }
     if (style.textColor) decls.push(`  color: ${style.textColor};`);
     if (!decls.length) return "";
@@ -3905,7 +3904,7 @@ ${decls.join("\n")}
       <div class="header">
         <span>🎨</span>
         <h2>Card-Mod Studio</h2>
-        <span class="version">v0.3.14</span>
+        <span class="version">v0.3.15</span>
       </div>
 
       <div class="panel-body ${hasPreview ? "" : "no-preview"}">
@@ -4290,7 +4289,7 @@ async function startInjector() {
   patchDialogElement(DialogClass);
   injectIntoExistingDialogs();
 }
-const VERSION = "0.3.14";
+const VERSION = "0.3.15";
 if (window.cardModStudio) {
   console.warn(
     `[Card-Mod Studio] Already loaded (v${window.cardModStudio.version}). Skipping load of v${VERSION}. If you see duplicate "Style" buttons, clear your browser cache.`
