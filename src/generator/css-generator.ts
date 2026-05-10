@@ -97,6 +97,11 @@ function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[
 
   const decls = [`--accent-color: ${s.color};`];
 
+  // Tile card: icon background/state color is driven by --tile-color
+  if (cardType === 'tile') {
+    decls.push(`--tile-color: ${s.color};`, `--state-icon-color: ${s.color};`);
+  }
+
   // Thermostat cards use climate state color variables
   if (cardType === 'thermostat') {
     decls.push(
@@ -106,6 +111,16 @@ function accentColorDecls(s: AccentColorModuleState, cardType?: string): string[
       `--state-climate-idle-color: ${s.color};`,
       `--control-circular-slider-color: ${s.color};`,
     );
+  }
+
+  // Gauge card uses its own color variable
+  if (cardType === 'gauge') {
+    decls.push(`--gauge-color: ${s.color};`);
+  }
+
+  // Button card (HA built-in) and generic entity-state cards
+  if (!['tile', 'thermostat', 'gauge', 'heading'].includes(cardType ?? '')) {
+    decls.push(`--state-icon-color: ${s.color};`, `--paper-item-icon-active-color: ${s.color};`);
   }
 
   return decls;
@@ -284,7 +299,11 @@ export function generateCss(state: StudioState, cardType?: string): string {
     parts.push(`ha-card {\n${body}\n}`);
   }
 
-  const iconColor = iconColorBlock(state.iconColor);
+  // Skip icon-color module when threshold is already driving icon color — both
+  // emit ha-state-icon { color } and the second block would silently win.
+  const thresholdOwnsIconColor =
+    state.threshold.enabled && state.threshold.property === 'icon-color';
+  const iconColor = thresholdOwnsIconColor ? '' : iconColorBlock(state.iconColor);
   if (iconColor) parts.push(iconColor);
 
   const threshold = thresholdBlock(state.threshold);
